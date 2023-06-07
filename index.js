@@ -30,7 +30,7 @@ async function run() {
 
     // class api
     app.get("/class", async (req, res) => {
-      const result = await classCollection.find().toArray();
+      const result = await classCollection.find().limit(6).toArray();
 
       result.map((course) => {
         course.students = parseFloat(course.students);
@@ -43,6 +43,11 @@ async function run() {
       });
 
       res.send(sortedData);
+    });
+
+    app.get("/allclasses", async (req, res) => {
+      const result = await classCollection.find().toArray();
+      res.send(result);
     });
 
     app.get("/users", async (req, res) => {
@@ -78,6 +83,31 @@ async function run() {
       const item = req.body;
       const result = await cartsCollection.insertOne(item);
       res.send(result);
+    });
+    // app.get("/carts", async (req, res) => {
+    //   const email = req.query.email;
+    //   if (!email) {
+    //     res.send([]);
+    //   }
+
+    //   const query = { email: email };
+    //   const result = await cartsCollection.find(query).toArray();
+    //   res.send(result);
+    // });
+
+    app.get("/cart", async (req, res) => {
+      try {
+        const email = req.query.email;
+        console.log(email);
+        if (!email) {
+          return res.send([]);
+        }
+        const result = await cartsCollection.find({ student: email }).toArray();
+        res.send(result);
+      } catch (error) {
+        console.error(error);
+        res.status(500).send("Internal Server Error");
+      }
     });
 
     // Send a ping to confirm a successful connection
