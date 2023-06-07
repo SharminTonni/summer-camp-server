@@ -84,16 +84,6 @@ async function run() {
       const result = await cartsCollection.insertOne(item);
       res.send(result);
     });
-    // app.get("/carts", async (req, res) => {
-    //   const email = req.query.email;
-    //   if (!email) {
-    //     res.send([]);
-    //   }
-
-    //   const query = { email: email };
-    //   const result = await cartsCollection.find(query).toArray();
-    //   res.send(result);
-    // });
 
     app.get("/cart", async (req, res) => {
       try {
