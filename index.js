@@ -26,6 +26,7 @@ async function run() {
 
     const classCollection = client.db("summercamp").collection("class");
     const usersCollection = client.db("summercamp").collection("users");
+    const cartsCollection = client.db("summercamp").collection("carts");
 
     // class api
     app.get("/class", async (req, res) => {
@@ -68,6 +69,14 @@ async function run() {
         return res.send({ message: "user alredy in the data base" });
       }
       const result = await usersCollection.insertOne(user);
+      res.send(result);
+    });
+
+    // cart apis
+
+    app.post("/carts", async (req, res) => {
+      const item = req.body;
+      const result = await cartsCollection.insertOne(item);
       res.send(result);
     });
 
