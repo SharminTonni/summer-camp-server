@@ -8,6 +8,24 @@ const jwt = require("jsonwebtoken");
 app.use(cors());
 app.use(express.json());
 
+// verify jwt token
+
+const verifyToken = (req, res, next) => {
+  const authorization = req.headers.authorization;
+  if (!authorization) {
+    return res.status(403).send({ message: "Invalid authorization" });
+  }
+  const token = authorization.split(" ")[1];
+  jwt.verify(token, process.env.ACCESS_TOKEN, (err, decoded) => {
+    if (err) {
+      return res.status(403).send({ message: "Invalid authorization" });
+    }
+
+    req.decoded = decoded;
+    next();
+  });
+};
+
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@cluster0.78xjoll.mongodb.net/?retryWrites=true&w=majority`;
 
@@ -28,6 +46,15 @@ async function run() {
     const classCollection = client.db("summercamp").collection("class");
     const usersCollection = client.db("summercamp").collection("users");
     const cartsCollection = client.db("summercamp").collection("carts");
+
+    // jwt token
+    app.post("/jwt", (req, res) => {
+      const user = req.body;
+      const jwtToken = jwt.sign(user, process.env.ACCESS_TOKEN, {
+        expiresIn: "78h",
+      });
+      res.send({ jwtToken });
+    });
 
     // class api
     app.get("/class", async (req, res) => {
@@ -61,7 +88,7 @@ async function run() {
       res.send(result);
     });
 
-    app.get("/allusers", async (req, res) => {
+    app.get("/allusers", verifyToken, async (req, res) => {
       const result = await usersCollection.find().toArray();
       res.send(result);
     });
@@ -121,19 +148,17 @@ async function run() {
       res.send(result);
     });
 
-    app.get("/cart", async (req, res) => {
-      try {
-        const email = req.query.email;
-        console.log(email);
-        if (!email) {
-          return res.send([]);
-        }
-        const result = await cartsCollection.find({ student: email }).toArray();
-        res.send(result);
-      } catch (error) {
-        console.error(error);
-        res.status(500).send("Internal Server Error");
+    app.get("/cart", verifyToken, async (req, res) => {
+      const email = req.query.email;
+
+      if (!email) {
+        return res.send([]);
       }
+      if (req.decoded.email !== email) {
+        return res.status(403).send({ message: "Invalid email" });
+      }
+      const result = await cartsCollection.find({ student: email }).toArray();
+      res.send(result);
     });
 
     app.delete("/carts/:id", async (req, res) => {
