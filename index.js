@@ -1,6 +1,7 @@
 const express = require("express");
 const cors = require("cors");
 const app = express();
+const stripe = require("stripe")(process.env.PAYMENT_SECRET_KEY);
 const port = process.env.PORT || 5000;
 require("dotenv").config();
 const jwt = require("jsonwebtoken");
@@ -46,6 +47,7 @@ async function run() {
     const classCollection = client.db("summercamp").collection("class");
     const usersCollection = client.db("summercamp").collection("users");
     const cartsCollection = client.db("summercamp").collection("carts");
+    const feedBackCollection = client.db("summercamp").collection("feedback");
 
     const verifyAdmin = async (req, res, next) => {
       const email = req.decoded.email;
@@ -138,6 +140,15 @@ async function run() {
         res.send(result);
       }
     );
+
+    app.get("/feedback/:id", verifyToken, verifyAdmin, async (req, res) => {
+      const id = req.params.id;
+      console.log(id);
+      const query = { _id: new ObjectId(id) };
+      const result = await classCollection.findOne(query);
+      console.log(result);
+      res.send(result);
+    });
 
     app.get("/users", async (req, res) => {
       //   const userRole = req.params.role;
@@ -298,6 +309,19 @@ async function run() {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await cartsCollection.deleteOne(query);
+      res.send(result);
+    });
+
+    app.post("/feedback", verifyToken, verifyAdmin, async (req, res) => {
+      const feedback = req.body;
+      const result = await feedBackCollection.insertOne(feedback);
+      res.send(result);
+    });
+
+    app.get("/feedback", verifyToken, verifyInstructor, async (req, res) => {
+      const email = req.query.email;
+
+      const result = await feedBackCollection.find({ email: email }).toArray();
       res.send(result);
     });
 
