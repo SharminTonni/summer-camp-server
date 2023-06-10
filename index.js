@@ -79,7 +79,10 @@ async function run() {
 
     // class api
     app.get("/class", async (req, res) => {
-      const result = await classCollection.find().limit(6).toArray();
+      const result = await classCollection
+        .find({ status: "approved" })
+        .limit(6)
+        .toArray();
 
       result.map((course) => {
         course.students = parseFloat(course.students);
@@ -95,6 +98,13 @@ async function run() {
     });
 
     app.get("/allclasses", async (req, res) => {
+      const result = await classCollection
+        .find({ status: "approved" })
+        .toArray();
+      res.send(result);
+    });
+
+    app.get("/allclass", verifyToken, verifyAdmin, async (req, res) => {
       const result = await classCollection.find().toArray();
       res.send(result);
     });
@@ -143,6 +153,44 @@ async function run() {
       const result = await usersCollection.find().toArray();
       res.send(result);
     });
+
+    app.put("/class/deny/:id", verifyToken, verifyAdmin, async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      const options = { upsert: true };
+      const updateDoc = {
+        $set: {
+          status: "deny",
+        },
+      };
+      const result = await classCollection.updateOne(
+        filter,
+        updateDoc,
+        options
+      );
+      res.send(result);
+    });
+    app.put(
+      "/class/approve/:id",
+      verifyToken,
+      verifyAdmin,
+      async (req, res) => {
+        const id = req.params.id;
+        const filter = { _id: new ObjectId(id) };
+        const options = { upsert: true };
+        const updateDoc = {
+          $set: {
+            status: "approved",
+          },
+        };
+        const result = await classCollection.updateOne(
+          filter,
+          updateDoc,
+          options
+        );
+        res.send(result);
+      }
+    );
 
     // users api
     app.post("/users", async (req, res) => {
