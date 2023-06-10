@@ -47,6 +47,27 @@ async function run() {
     const usersCollection = client.db("summercamp").collection("users");
     const cartsCollection = client.db("summercamp").collection("carts");
 
+    const verifyAdmin = async (req, res, next) => {
+      const email = req.decoded.email;
+      const query = { email: email };
+      const user = await usersCollection.findOne(query);
+      if (user?.role !== "admin") {
+        return res.status(403).send({ message: "Forbidden Access" });
+      }
+
+      next();
+    };
+    const verifyInstructor = async (req, res, next) => {
+      const email = req.decoded.email;
+      const query = { email: email };
+      const user = await usersCollection.findOne(query);
+      if (user?.role !== "instructor") {
+        return res.status(403).send({ message: "Forbidden Access" });
+      }
+
+      next();
+    };
+
     // jwt token
     app.post("/jwt", (req, res) => {
       const user = req.body;
@@ -78,6 +99,36 @@ async function run() {
       res.send(result);
     });
 
+    app.delete("/deleteclass/:id", verifyToken, async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await classCollection.deleteOne(query);
+      res.send(result);
+    });
+    app.post("/allclasses", verifyToken, verifyInstructor, async (req, res) => {
+      const newItem = req.body;
+      const query = { _id: newItem._id };
+      const existingItem = await classCollection.findOne(query);
+      if (existingItem) {
+        return res.send({ message: "already exist" });
+      }
+      const result = await classCollection.insertOne(newItem);
+      res.send(result);
+    });
+
+    app.get(
+      "/myclass/:email",
+      verifyToken,
+      verifyInstructor,
+      async (req, res) => {
+        const email = req.params.email;
+
+        const query = { email: email };
+        const result = await classCollection.find(query).toArray();
+        res.send(result);
+      }
+    );
+
     app.get("/users", async (req, res) => {
       //   const userRole = req.params.role;
 
@@ -88,7 +139,7 @@ async function run() {
       res.send(result);
     });
 
-    app.get("/allusers", verifyToken, async (req, res) => {
+    app.get("/allusers", verifyToken, verifyAdmin, async (req, res) => {
       const result = await usersCollection.find().toArray();
       res.send(result);
     });
@@ -104,6 +155,18 @@ async function run() {
       const result = await usersCollection.insertOne(user);
       res.send(result);
     });
+
+    app.delete(
+      "/deleteuser/:email",
+      verifyToken,
+
+      async (req, res) => {
+        const email = req.params.email;
+        const query = { email: email };
+        const result = await usersCollection.deleteOne(query);
+        res.send(result);
+      }
+    );
 
     app.put("/user/admin/:id", async (req, res) => {
       const id = req.params.id;
@@ -140,6 +203,28 @@ async function run() {
       res.send(result);
     });
 
+    app.get("/user/admin/:email", verifyToken, async (req, res) => {
+      const email = req.params.email;
+
+      const query = { email: email };
+      if (email !== req.decoded.email) {
+        res.send({ admin: false });
+      }
+      const user = await usersCollection.findOne(query);
+      const result = { admin: user?.role == "admin" };
+      res.send(result);
+    });
+    app.get("/user/instructor/:email", verifyToken, async (req, res) => {
+      const email = req.params.email;
+
+      const query = { email: email };
+      if (email !== req.decoded.email) {
+        res.send({ admin: false });
+      }
+      const user = await usersCollection.findOne(query);
+      const result = { instructor: user?.role == "instructor" };
+      res.send(result);
+    });
     // cart apis
 
     app.post("/carts", async (req, res) => {
