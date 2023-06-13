@@ -1,10 +1,10 @@
 const express = require("express");
 const cors = require("cors");
 const app = express();
-const stripe = require("stripe")(process.env.PAYMENT_SECRET_KEY);
 const port = process.env.PORT || 5000;
 require("dotenv").config();
 const jwt = require("jsonwebtoken");
+const stripe = require("stripe")(process.env.PAYMENT_SECRET_KEY);
 
 app.use(cors());
 app.use(express.json());
@@ -48,6 +48,7 @@ async function run() {
     const usersCollection = client.db("summercamp").collection("users");
     const cartsCollection = client.db("summercamp").collection("carts");
     const feedBackCollection = client.db("summercamp").collection("feedback");
+    const paymentCollection = client.db("summercamp").collection("payment");
 
     const verifyAdmin = async (req, res, next) => {
       const email = req.decoded.email;
@@ -77,6 +78,85 @@ async function run() {
         expiresIn: "78h",
       });
       res.send({ jwtToken });
+    });
+
+    // app.put("/payment/:id", verifyToken, async (req, res) => {
+    //   const payment = req.body;
+    //   const id = req.params.id;
+    //   const options = { upsert: true };
+    //   const filter = { _id: new ObjectId(id) };
+    //   const existingItem = await classCollection.findOne(filter);
+    //   const updatedDoc = {
+    //     $inc: {
+    //       students: +1,
+    //       availableSeats: -1,
+    //     },
+    //   };
+    //   const updatedResult = await classCollection.updateOne(
+    //     filter,
+    //     updatedDoc,
+    //     options
+    //   );
+    //   const query = {
+    //     // _id: { $in: payment.cartItems.map((id) => new ObjectId(id)) },
+    //   };
+    //   const insertResult = await paymentCollection.insertOne(payment);
+
+    //   const deletedResult = await cartsCollection.deleteOne(filter);
+    //   res.send({
+    //     insertResult,
+    //     deletedResult,
+    //     updatedResult,
+    //     // updatedStudents,
+    //     // updatedAvailabeSeats,
+    //   });
+    // });
+
+    app.put("/payment/:id", verifyToken, async (req, res) => {
+      const payment = req.body;
+      const id = req.params.id;
+      //   const options = { upsert: true };
+
+      const queryTwo = { _id: new ObjectId(id) };
+      const paidClass = await classCollection.findOne(queryTwo);
+
+      const deletedResult = await cartsCollection.deleteOne({ classId: id });
+      const insertedResult = await paymentCollection.insertOne(payment);
+      res.send({ insertedResult, deletedResult });
+      //   paidClass?.availabeSeats +=1;
+      //   paidClass?.students -=1;
+      //   const updatedDoc = {
+      //     $inc: {
+      //       updatedStudents,
+      //       updatedAvailableSeats,
+      //     },
+      //   };
+
+      //   const updatedDoc = {
+      //     $inc: { students: 1 },
+      //     $set: { availableSeats: { $subtract: ["$availableSeats", 1] } },
+      //   };
+      //   const updatedClass = await classCollection.updateOne(
+      //     queryTwo,
+      //     updatedDoc
+      //   );
+      //   Update the class document in classCollection
+      //   const updatedClass = await classCollection.updateOne(
+      //     queryTwo,
+      //     {
+      //       $inc: { students: 1, availableSeats: -1 },
+      //     },
+      //     options
+      //   );
+
+      //   console.log(updatedClass);
+    });
+
+    app.get("/cart/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { classId: id };
+      const result = await cartsCollection.findOne(query);
+      res.send(result);
     });
 
     // class api
@@ -310,6 +390,21 @@ async function run() {
       const query = { _id: new ObjectId(id) };
       const result = await cartsCollection.deleteOne(query);
       res.send(result);
+    });
+
+    app.post("/create-payment-intent", verifyToken, async (req, res) => {
+      const { price } = req.body;
+      console.log(price);
+      const amount = parseInt(price * 100);
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: amount,
+        currency: "usd",
+        payment_method_types: ["card"],
+      });
+
+      res.send({
+        clientSecret: paymentIntent.client_secret,
+      });
     });
 
     app.post("/feedback", verifyToken, verifyAdmin, async (req, res) => {
