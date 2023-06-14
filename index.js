@@ -49,6 +49,10 @@ async function run() {
     const cartsCollection = client.db("summercamp").collection("carts");
     const feedBackCollection = client.db("summercamp").collection("feedback");
     const paymentCollection = client.db("summercamp").collection("payment");
+    const paidClassCollection = client.db("summercamp").collection("paidClass");
+    const paidInstructorClassCollection = client
+      .db("summercamp")
+      .collection("paidClassInstructor");
 
     const verifyAdmin = async (req, res, next) => {
       const email = req.decoded.email;
@@ -118,10 +122,21 @@ async function run() {
       //   const options = { upsert: true };
 
       const queryTwo = { _id: new ObjectId(id) };
-      const paidClass = await classCollection.findOne(queryTwo);
+      const paidInstructor = await classCollection.findOne({
+        _id: new ObjectId(id),
+      });
+      const paidInstructorClass = await paidInstructorClassCollection.insertOne(
+        paidInstructor
+      );
+
+      const paidClass = await cartsCollection.findOne({ classId: id });
+      const paidClassInserted = await paidClassCollection.insertOne(paidClass);
 
       const deletedResult = await cartsCollection.deleteOne({ classId: id });
       const insertedResult = await paymentCollection.insertOne(payment);
+      //   const updatedClass = await classCollection.updateOne(queryTwo, {
+      //     $inc: { students: 1, availableSeats: -1 },
+      //   });
       res.send({ insertedResult, deletedResult });
       //   paidClass?.availabeSeats +=1;
       //   paidClass?.students -=1;
@@ -141,15 +156,31 @@ async function run() {
       //     updatedDoc
       //   );
       //   Update the class document in classCollection
-      //   const updatedClass = await classCollection.updateOne(
-      //     queryTwo,
-      //     {
-      //       $inc: { students: 1, availableSeats: -1 },
-      //     },
-      //     options
-      //   );
 
       //   console.log(updatedClass);
+    });
+
+    app.get("/mypayment/:email", verifyToken, async (req, res) => {
+      const email = req.params.email;
+      const result = await paymentCollection
+        .find({ email: email })
+        .sort({ date: -1 })
+        .toArray();
+      res.send(result);
+    });
+    app.get("/myenrolled/:id", async (req, res) => {
+      const { id } = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await cartsCollection.findOne(query);
+      res.send(result);
+    });
+
+    app.get("/paidclass/:email", verifyToken, async (req, res) => {
+      const email = req.params.email;
+      const result = await paidClassCollection
+        .find({ student: email })
+        .toArray();
+      res.send(result);
     });
 
     app.get("/cart/:id", async (req, res) => {
@@ -413,12 +444,42 @@ async function run() {
       res.send(result);
     });
 
+    app.put("/deniedfeedback", async (req, res) => {
+      const feedback = req.body;
+      const options = { upsert: true };
+      const updatedDoc = {
+        $set: {
+          feedback: feedback,
+        },
+      };
+
+      const result = await classCollection.updateOne(
+        feedback,
+        updatedDoc,
+        options
+      );
+      res.send(result);
+    });
+
     app.get("/feedback", verifyToken, verifyInstructor, async (req, res) => {
       const email = req.query.email;
 
       const result = await feedBackCollection.find({ email: email }).toArray();
       res.send(result);
     });
+
+    app.get(
+      "/paidInstructor/:email",
+      verifyToken,
+      verifyInstructor,
+      async (req, res) => {
+        const email = req.params.email;
+        const result = await paidInstructorClassCollection
+          .find({ email: email })
+          .toArray();
+        res.send(result);
+      }
+    );
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
